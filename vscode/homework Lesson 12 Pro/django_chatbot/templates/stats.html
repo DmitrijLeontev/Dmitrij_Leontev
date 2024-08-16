@@ -1,0 +1,29 @@
+<!-- stats.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика</title>
+</head>
+<body>
+    <h1>Статистика запросов</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Час</th>
+                <th>Количество запросов</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for hour, count in stats.items %}
+                <tr>
+                    <td>{{ hour }}</td>
+                    <td>{{ count }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
