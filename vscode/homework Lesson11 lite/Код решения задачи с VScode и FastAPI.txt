@@ -1,0 +1,105 @@
+
+
+Конечно, давай разберемся!
+1.Установите FastAPI и uvicorn :
+
+   В Visual Studio Code (VSCode) вам необходимо открыть встроенный терминал. Это можно сделать, выбрав меню «Вид» -> «Терминал» или с помощью горячей клавиши `CtrlCtrl + `.
+   В терминале выполните команду:
+
+   pip install fastapi uvicorn                      #Это установка FastAPI и uvicorn в вашей виртуальной реальности
+  
+2.Создайте файл main.py:
+  В VSCode создайте новый файл с именем main.py и вставьте следующий код:
+   
+  from fastapi import FastAPI, HTTPException
+
+app = FastAPI()
+
+@app.post("/add")
+def add_numbers(number1: float, number2: float):
+    return {"result": number1 + number2}
+
+@app.post("/subtract")
+def subtract_numbers(number1: float, number2: float):
+    return {"result": number1 - number2}
+
+@app.post("/multiply")
+def multiply_numbers(number1: float, number2: float):
+    return {"result": number1 * number2}
+
+@app.post("/divide")
+def divide_numbers(number1: float, number2: float):
+    if number2 == 0:
+        raise HTTPException(status_code=400, detail="Division by zero is not allowed")
+    return {"result": number1 / number2} 
+
+3.Запустите приложение с помощью uvicorn :
+
+  В терминале выполните строку:
+  
+  uvicorn main:app --reload          #Это запустите ваше приложение, и оно будет доступно по адресу http://127.0.0.1:8000 .
+
+4.Тестирование API :
+
+  Вы можете использовать вREST-клиент в VSCode для тестирования API.
+  Создаем новый файл Testi.ipynb  и в него пишем коды в отдельных ячейках для каждой операции.
+  
+Примеры кода для вычитания, умножения и деления с использованием библиотеки requests:
+Вы можете использовать эти фрагменты кода для отправки POST-запросов на соответствующие эндпоинты вашего FastAPI-приложения 
+и получения результатов операций:
+
+4.1.Вычитание (subtract):
+
+import requests
+
+url = "http://127.0.0.1:8000/subtract"
+params = {
+    "number1": 5,
+    "number2": 3
+}
+
+response = requests.post(url, params=params)
+
+print(response.json())
+
+4.2.Умножение (multiply):
+
+import requests
+
+url = "http://127.0.0.1:8000/multiply"
+params = {
+    "number1": 5,
+    "number2": 3
+}
+
+response = requests.post(url, params=params)
+
+print(response.json())
+
+4.3.Деление (divide):
+
+import requests
+
+url = "http://127.0.0.1:8000/divide"
+params = {
+    "number1": 6,
+    "number2": 2
+}
+
+response = requests.post(url, params=params)
+
+print(response.json())
+
+4.4.Сложение:
+
+import requests
+
+url = "http://127.0.0.1:8000/add"
+params = {
+    "number1": 5,
+    "number2": 3
+}
+
+response = requests.post(url, params=params)
+
+print(response.json())
