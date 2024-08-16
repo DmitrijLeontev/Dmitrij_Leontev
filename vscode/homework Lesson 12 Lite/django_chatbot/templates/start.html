@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% load static %}
+    <img src="{% static 'chatbot/ChatGPT.png' %}", class="img-fluid", alt="My image">
+    <div style="position: absolute; top: 0px; right: 20px; padding: 20px; color: rgb(24, 24, 24); font-size: 25px; font-family: Trebuchet MS; text-align: right;"><br><br>Добро пожаловать!<br>Чтобы открыть диалог с ботом нажмите на кнопку</div>
+    <a href="{% url 'chatbot' %}"><button class="btn btn-dark" type="button" style="position: absolute; top: 200px; right: 100px;">Button</button></a>
+{% endblock %}
