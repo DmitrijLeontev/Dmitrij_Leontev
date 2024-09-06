@@ -1,0 +1,339 @@
+﻿полный код проекта распознавания лиц, который использует библиотеку InsightFace и Faiss. Включены все основные скрипты и пояснения для каждого файла.
+1. Структура проекта
+face_recognition_system/
+├── data/
+│   ├── faces/                   # Папка для изображений лиц
+│   ├── embeddings/              # Папка для сохранения эмбеддингов
+│   └── videos/                  # Папка для видеофайлов
+├── models/
+│   └── vector_database.index    # Векторная база данных Faiss
+├── scripts/
+│   ├── create_embeddings.py     # Скрипт для создания эмбеддингов
+│   ├── update_embeddings.py     # Скрипт для обновления/удаления эмбеддингов в Faiss
+│   ├── recognize_faces.py       # Основной скрипт для распознавания лиц в видео
+│   ├── detect_faces.py          # Скрипт для обнаружения лиц в видео
+├── requirements.txt             # Список зависимостей
+└── README.md                    # Описание проекта и инструкции по запуску
+
+
+2. requirements.txt
+insightface
+faiss-cpu
+numpy
+opencv-python
+tk
+onnxruntime
+supervision==0.2.0
+
+
+Пояснение: Этот файл содержит список всех зависимостей, необходимых для работы проекта.
+3. scripts/create_embeddings.py
+import os
+from insightface.app import FaceEmbedding
+import numpy as np
+import pickle
+
+
+# Параметры
+data_dir = "../data/faces/"
+output_dir = "../data/embeddings/"
+
+
+# Инициализация модели
+embedding_model = FaceEmbedding()
+
+
+def create_embeddings(image_path):
+    return embedding_model.get(image_path)
+
+
+def main():
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+
+    for filename in os.listdir(data_dir):
+        if filename.endswith(".jpg") or filename.endswith(".png"):
+            image_path = os.path.join(data_dir, filename)
+            emb = create_embeddings(image_path)
+            output_file = os.path.join(output_dir, filename.split('.')[0] + ".pkl")
+            
+            # Сохранение эмбеддинга
+            with open(output_file, 'wb') as f:
+                pickle.dump(emb, f)
+            print(f"Эмбеддинг для {filename} создан и сохранен.")
+
+
+if __name__ == "__main__":
+    main()
+
+
+Пояснение:
+* FaceEmbedding: Используется для получения эмбеддингов лиц.
+* create_embeddings: Функция, которая создает эмбеддинги для каждого изображения лица.
+* main: Скрипт проходит по всем изображениям в папке data/faces/, создает эмбеддинги и сохраняет их в data/embeddings/.
+4. scripts/update_embeddings.py
+import os
+import pickle
+import faiss
+import numpy as np
+
+
+# Параметры
+embedding_dir = "../data/embeddings/"
+index_file = "../models/vector_database.index"
+
+
+def load_embeddings():
+    embeddings = []
+    filenames = []
+
+
+    for filename in os.listdir(embedding_dir):
+        if filename.endswith(".pkl"):
+            filepath = os.path.join(embedding_dir, filename)
+            with open(filepath, 'rb') as f:
+                emb = pickle.load(f)
+                embeddings.append(emb)
+                filenames.append(filename)
+
+
+    embedding_array = np.array(embeddings).astype('float32')
+    return embedding_array, filenames
+
+
+def update_index():
+    embedding_array, filenames = load_embeddings()
+
+
+    # Создание индекса Faiss
+    index = faiss.IndexFlatL2(embedding_array.shape[1])
+    index.add(embedding_array)
+    
+    # Сохранение индекса и соответствующих имен файлов
+    faiss.write_index(index, index_file)
+    with open(index_file + "_filenames.pkl", 'wb') as f:
+        pickle.dump(filenames, f)
+    print("Индекс Faiss обновлен.")
+
+
+def delete_embedding(person_name):
+    filename = person_name + ".pkl"
+    filepath = os.path.join(embedding_dir, filename)
+    
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        print(f"Эмбеддинг для {person_name} удален.")
+    else:
+        print(f"Файл {filename} не найден.")
+
+
+    update_index()
+
+
+if __name__ == "__main__":
+    update_index()
+    # delete_embedding("person1")
+
+
+Пояснение:
+* load_embeddings: Загружает все эмбеддинги из data/embeddings/.
+* update_index: Создает или обновляет индекс Faiss с новыми эмбеддингами.
+* delete_embedding: Удаляет эмбеддинг по имени и обновляет индекс.
+5. scripts/recognize_faces.py
+import cv2
+import numpy as np
+import faiss
+import pickle
+from detect_faces import detect_faces
+from insightface.app import FaceEmbedding
+import tkinter as tk
+from tkinter import filedialog
+
+
+# Параметры
+index_file = "../models/vector_database.index"
+filenames_file = index_file + "_filenames.pkl"
+
+
+# Загрузка индекса Faiss
+index = faiss.read_index(index_file)
+
+
+# Загрузка имен файлов (лиц)
+with open(filenames_file, 'rb') as f:
+    filenames = pickle.load(f)
+
+
+# Инициализация модели
+embedding_model = FaceEmbedding()
+
+
+def recognize_face(face_embedding):
+    face_embedding = np.array(face_embedding).astype('float32')
+    D, I = index.search(np.expand_dims(face_embedding, axis=0), 1)
+    if D[0][0] < 0.6:  # Порог сопоставления
+        return filenames[I[0][0]].split('.')[0], D[0][0]
+    else:
+        return "Unknown", D[0][0]
+
+
+def process_video(video_path):
+    cap = cv2.VideoCapture(video_path)
+
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+
+        faces = detect_faces(frame)
+        for (x, y, w, h) in faces:
+            face_img = frame[y:y+h, x:x+w]
+            face_embedding = embedding_model.get(face_img)
+            label, distance = recognize_face(face_embedding)
+            
+            # Рисуем зелёную рамку вокруг лица
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            
+            # Определяем размер и позицию текста
+            text = label
+            text_size, _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+            text_width, text_height = text_size
+            
+            # Рисуем фон для текста
+            text_x = x
+            text_y = y + h + text_height + 10
+            cv2.rectangle(frame, (text_x, text_y - text_height - 10), (text_x + text_width, text_y + 10), (0, 255, 0), cv2.FILLED)
+            
+            # Добавляем текст с именем под рамкой
+            cv2.putText(frame, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
+
+
+        cv2.imshow('Video', frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+def select_video():
+    root = tk.Tk()
+    root.withdraw()  # Скрываем главное окно
+    video_path = filedialog.askopenfilename(title="Выберите видеофайл", filetypes=[("Video files", "*.mp4 *.avi *.mov")])
+    if video_path:
+        process_video(video_path)
+
+
+if __name__ == "__main__":
+    while True:
+        print("Ожидание выбора видеофайла...")
+        select_video()
+        print("Видео обработано. Выберите другой файл или закройте окно для завершения.")
+
+
+Пояснение:
+* recognize_face: Распознает лицо по эмбеддингу и возвращает имя.
+* process_video: Обрабатывает видео, обнаруживает лица, рисует рамки и добавляет текст с именем.
+* select_video: Открывает диалоговое окно для выбора видеофайла.
+6. scripts/detect_faces.py
+import cv2
+
+
+def detect_faces(frame):
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    return faces
+
+
+Пояснение:
+* detect_faces: Использует каскад Хаара для обнаружения лиц на изображении.
+7. README.md
+# Face Recognition System
+
+
+## Описание
+Проект представляет собой систему распознавания лиц в видеофайлах. Система обнаруживает лица, создаёт их эмбеддинги и сопоставляет с существующей базой данных для идентификации.
+
+
+## Структура проекта
+
+
+face_recognition_system/ ├── data/
+                                          │ ├── faces/ 
+                                          │ ├── embeddings/ 
+                                          │ └── videos/ 
+                                         ├── models/ 
+                                         │ └── vector_database.index 
+                                         ├── scripts/ 
+                                         │ ├── create_embeddings.py
+                                         │ ├── update_embeddings.py 
+                                          │ ├── recognize_faces.py 
+                                          │ ├── detect_faces.py 
+                                         ├── requirements.txt 
+                                          └── README.md
+## Установка и запуск
+
+
+1. Установите зависимости:
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+
+2. Создайте эмбеддинги для изображений лиц:
+    ```sh
+    python scripts/create_embeddings.py
+    ```
+
+
+3. Обновите векторную базу данных Faiss:
+    ```sh
+    python scripts/update_embeddings.py
+    ```
+
+
+4. Запустите распознавание лиц на видео:
+    ```sh
+    python scripts/recognize_faces.py
+    ```
+
+
+## Инструкции по использованию
+- Добавьте изображения лиц в папку `data/faces/`.
+- Запустите скрипт `create_embeddings.py`, чтобы создать эмбеддинги.
+- Обновите индекс с помощью `update_embeddings.py`.
+- Запустите `recognize_faces.py` и выберите видеофайл для распознавания лиц.
+
+
+Пояснение: Файл README.md содержит описание проекта, структуру папок, инструкции по установке и запуску проекта.
+Этот код должен работать на вашей локальной машине с установленным Python 3.9.13 и всеми необходимыми зависимостями.
+
+
+
+
+
+
+# Установка библиотеки insightface
+pip install -q insightface
+# Библиотека insightface предназначена для работы с моделями глубокого обучения для распознавания и анализа лиц. Обладает возможностями для обнаружения, выравнивания и идентификации лиц, а также для анализа различных атрибутов лиц.
+
+
+# Установка библиотеки onnxruntime для работы с моделями ONNX на CPU
+pip install -q onnxruntime
+app_provider = 'CPUExecutionProvider'
+# Библиотека onnxruntime используется для выполнения моделей формата ONNX на различных аппаратных платформах, включая CPU.
+
+
+from insightface.app import FaceAnalysis  # Импорт модуля FaceAnalysis из библиотеки insightface
+# Модуль FaceAnalysis предоставляет функциональность для анализа лиц, включая обнаружение и распознавание лиц.
+
+
+# Установка библиотеки supervision версии 0.2.0
+pip install supervision==0.2.0
+import supervision as sv  # Импорт библиотеки supervision
+# Библиотека supervision используется для обучения и управления моделями машинного обучения.
