@@ -1,0 +1,320 @@
+Урок взят из открытых источников  по адресу:  https://waksoft.susu.ru/2021/11/16/kak-s-pomoshhyu-python-izvlekat-kadry-iz-video/
+
+Как вы знаете, видео состоит из серии последовательных изображений. Эти изображения называются кадрами и воспроизводятся непрерывно одно за другим с определенной скоростью, создавая для человеческого глаза движение.
+
+В этом уроке я покажу два метода извлечения кадров (фреймов по ихнем) из видеофайлов в Python. В первом мы воспользуемся хорошо известной библиотекой OpenCV. После чего рассмотрим другой метод извлечения кадров с помощью библиотеки MoviePy.
+
+Для начала установим библиотеки:
+
+$ pip install python-opencv moviepy
+Метод 1: извлечение фреймов с помощью OpenCV
+Я создам файл extract_frames_opencv.py и запишу туда строчки для импорта необходимых модулей:
+from datetime import timedelta
+import cv2
+import numpy as np
+import os
+Поскольку кадровая частотаએ или длительность кадра, FPSએ, для видео не одинакова определим этот параметр для настройки количества кадров, которые будем извлекать и сохранять за одну секунду:
+# то есть, если видео длительностью 30 секунд, сохраняется 10 кадров в секунду = всего сохраняется 300 кадров
+SAVING_FRAMES_PER_SECOND = 10
+Будем использовать это значение в обоих методах. Например, если на данный момент он установлен на 10, то будет сохраняться только 10 кадров видео в секунду, даже если, на самом деле, частота кадров в видео составляет 24. Если видео занимает 30 секунд, то всего будет сохранено 300 кадров. Можно установить значение 0,5 и сохранять только один кадр за 2 секунды, ну и так далее.
+
+Затем определим две вспомогательные функции:
+
+def format_timedelta(td):
+    """Служебная функция для классного форматирования объектов timedelta (например, 00:00:20.05)
+    исключая микросекунды и сохраняя миллисекунды"""
+    result = str(td)
+    try:
+        result, ms = result.split(".")
+    except ValueError:
+        return result + ".00".replace(":", "-")
+    ms = int(ms)
+    ms = round(ms / 1e4)
+    return f"{result}.{ms:02}".replace(":", "-")
+def get_saving_frames_durations(cap, saving_fps):
+    """Функция, которая возвращает список длительностей, в которые следует сохранять кадры."""
+    s = []
+    # получаем продолжительность клипа, разделив количество кадров на количество кадров в секунду
+    clip_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS)
+    # используйте np.arange () для выполнения шагов с плавающей запятой
+    for i in np.arange(0, clip_duration, 1 / saving_fps):
+        s.append(i)
+    return s
+Функция format_timedelta() принимает объект timedelta и возвращает красивое строковое представление с миллисекундами и без микросекунд.
+
+Функция get_saving_frames_durations() принимает объект VideoCapture из OpenCV, параметр сохранения, который мы обсуждали ранее, и возвращает список длительностей каждого кадра, который мы будем сохранять.
+
+Теперь, когда у нас есть нужные вспомогательные функции, запишем основную функцию и попытаемся понять, что и как она делает:
+
+def main(video_file):
+    filename, _ = os.path.splitext(video_file)
+    filename += "-opencv"
+    # создаем папку по названию видео файла
+    if not os.path.isdir(filename):
+        os.mkdir(filename)
+    # читать видео файл    
+    cap = cv2.VideoCapture(video_file)
+    # получить FPS видео
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    # если SAVING_FRAMES_PER_SECOND выше видео FPS, то установите его на FPS (как максимум)
+    saving_frames_per_second = min(fps, SAVING_FRAMES_PER_SECOND)
+    # получить список длительностей для сохранения
+    saving_frames_durations = get_saving_frames_durations(cap, saving_frames_per_second)
+    # запускаем цикл
+    count = 0
+    while True:
+        is_read, frame = cap.read()
+        if not is_read:
+            # выйти из цикла, если нет фреймов для чтения
+            break
+        # получаем продолжительность, разделив количество кадров на FPS
+        frame_duration = count / fps
+        try:
+            # получить самую раннюю продолжительность для сохранения
+            closest_duration = saving_frames_durations[0]
+        except IndexError:
+            # список пуст, все кадры длительности сохранены
+            break
+        if frame_duration >= closest_duration:
+            # если ближайшая длительность меньше или равна длительности кадра,
+            # затем сохраняем фрейм
+            frame_duration_formatted = format_timedelta(timedelta(seconds=frame_duration))
+            cv2.imwrite(os.path.join(filename, f"frame{frame_duration_formatted}.jpg"), frame) 
+            # удалить точку продолжительности из списка, так как эта точка длительности уже сохранена
+            try:
+                saving_frames_durations.pop(0)
+            except IndexError:
+                pass
+        # увеличить количество кадров
+        count += 1
+Функция выглядит как-бы сложноватой, но это не так и вот что здесь делается:
+
+Сначала создаем переменную для хранения имени папки, в которой мы собираемся создать и сохранить все наши фреймы, добавим «-opencv», чтобы различать методы, но это совсем необязательно.
+Затем создаем папку, если она еще не создана, с помощью функции os.mkdir().
+После этого читаем видеофайл с помощью cv2.VideoCapture, извлекаем FPS с помощью метода cap.get() и передаем код для FPS, то есть cv2.CAP_PROP_FPS.
+Устанавливаем сохранение кадров в секунду, как минимум фактического FPS видео и нашего параметра. Таким образом, мы уверены, что не сможем сэконмить на более высокой частоте кадров в секунду, чем фактическая частота кадров видео.
+После того, как получена длительность кадра для сохранения, входим в цикл чтения кадров и сохраняем только тогда, когда уверены, что длительность есть в нашем списке save_frames_durations. Фрейм сохраняем с помощью cv2.imwrite() и устанавливаем в имени фрейма его фактическую длительность.
+Основной код:
+
+if __name__ == "__main__":
+    import sys
+    video_file = sys.argv[1]
+    main(video_file)
+Для проверки скрипта я взял видеозаставку с сайта студентов Бизнес-информатики и поскольку имя видеофайла передаётся с использованием аргументов командной строки, запустим его следующим образом:
+
+$ python extract_frames_opencv.py is42.mp4
+После выполнения вышеуказанной команды создается новая папка «is42-opencv», и вот что в ней:
+Раскадровка видеоролика is42.mp4
+Раскадровка видеоролика is42.mp4
+При выполненияя скрипта в консоли вы увидите что-то подобное:
+Сообщения в консоли при извлечении кадров
+Сообщения в консоли при извлечении кадров
+
+Как видите, кадры сохраняются вместе с отметкой времени в имени файла.
+
+Метод 2: извлечение кадров с помощью MoviePy
+В этом методе мы не собираемся использовать OpenCV, но с другой библиотекой под названием MoviePy я собираюсь создать файл с именем extract_frames_moviepy.py и импортировать необходимые модули:
+
+from moviepy.editor import VideoFileClip
+import numpy as np
+import os
+from datetime import timedelta
+Как и в первом методе, здесь мы также будем использовать параметр SAVING_FRAMES_PER_SECOND:
+
+# то есть, если видео длительностью 30 секунд, сохраняется 10 кадров в секунду = всего сохраняется 300 кадров
+SAVING_FRAMES_PER_SECOND = 10
+Обратитесь к первому разделу этого руководства, чтобы узнать, что именно это означает. Как и раньше, нам также понадобится функция format_timedelta():
+
+def format_timedelta(td):
+    """Служебная функция для классного форматирования объектов timedelta (например, 00: 00: 20.05)
+    исключая микросекунды и сохраняя миллисекунды"""
+    result = str(td)
+    try:
+        result, ms = result.split(".")
+    except ValueError:
+        return result + ".00".replace(":", "-")
+    ms = int(ms)
+    ms = round(ms / 1e4)
+    return f"{result}.{ms:02}".replace(":", "-")
+Теперь перейдем к основной функции:
+
+def main(video_file):
+    # загрузить видеоклип
+    video_clip = VideoFileClip(video_file)
+    # создаем папку по названию видео файла
+    filename, _ = os.path.splitext(video_file)
+    filename += "-moviepy"
+    if not os.path.isdir(filename):
+        os.mkdir(filename)
+    # если SAVING_FRAMES_PER_SECOND выше видео FPS, то установите его на FPS (как максимум)
+    saving_frames_per_second = min(video_clip.fps, SAVING_FRAMES_PER_SECOND)
+    # если SAVING_FRAMES_PER_SECOND установлен в 0, шаг равен 1 / fps, иначе 1 / SAVING_FRAMES_PER_SECOND
+    step = 1 / video_clip.fps if saving_frames_per_second == 0 else 1 / saving_frames_per_second
+    # перебираем каждый возможный кадр
+    for current_duration in np.arange(0, video_clip.duration, step):
+        # отформатируйте имя файла и сохраните его
+        frame_duration_formatted = format_timedelta(timedelta(seconds=current_duration)).replace(":", "-")
+        frame_filename = os.path.join(filename, f"frame{frame_duration_formatted}.jpg")
+        # сохраняем кадр с текущей длительностью
+        video_clip.save_frame(frame_filename, current_duration)
+Как вы уже могли заметить, этот метод требует меньше кода. Сначала мы загружаем наш видеоклип с помощью класса VideoFileClip(), создаем нашу папку и убеждаемся, что сохранение fps меньше или равно fps видео.
+
+Затем мы определяем наш шаг цикла, который равен 1, деленному на экономию кадров в секунду, если мы установим SAVING_FRAMES_PER_SECOND на 10,тогда шаг будет 0,1 (т.е. сохранение кадра каждые 0,1 секунды).
+
+Разница здесь в том, что объект VideoFileClip имеет метод save_frame(), который принимает два аргумента: имя файла кадра и продолжительность кадра, который вы хотите сохранить. Мы сделали цикл, используя np.arange() (с плавающей точкой.точечная версия обычной функции range()), чтобы предпринимать шаги для каждого кадра, который мы хотим, и соответственно вызывать метод save_frame().
+
+Вот основной код:
+
+if __name__ == "__main__":
+    import sys
+    video_file = sys.argv[1]
+    main(video_file)
+Проверим:
+
+$ python extract_frames_moviepy.py zoo.mp4
+Заключение
+После использования обоих методов в моем случае замечено, что первый метод (с использованием OpenCV) быстрее с точки зрения времени выполнения, но сохраняет изображения большего размера, чем метод с использованием MoviePy.
+
+На получение 95 кадров из видеоролика is42.mp4 для OpenCV потребовалось 1.942512234 секунд и заняли они 4,72 МБ на диске, а с использованием второго метода (MoviePy) потребовалось 2.3765896919999996 секунды, но 2,36 МБ диского пространсва.
+
+У вас в руках два метода извлечения фреймов из видео с помощью Python, и вам решать, какой из них вам больше подходит.
+
+Полный код обоих методов можно посмотреть здесь:
+extract_frames_opencv.py
+
+from datetime import timedelta
+import cv2
+import numpy as np
+import os
+# то есть, если видео длительностью 30 секунд, сохраняется 10 кадров в секунду = всего сохраняется 300 кадров
+SAVING_FRAMES_PER_SECOND = 10
+def format_timedelta(td):
+    """Служебная функция для классного форматирования объектов timedelta (например, 00:00:20.05)
+    исключая микросекунды и сохраняя миллисекунды"""
+    result = str(td)
+    try:
+        result, ms = result.split(".")
+    except ValueError:
+        return "-" + result + ".00".replace(":", "-")
+    ms = int(ms)
+    ms = round(ms / 1e4)
+    return f"-{result}.{ms:02}".replace(":", "-")
+def get_saving_frames_durations(cap, saving_fps):
+    """Функция, которая возвращает список длительностей сохраняемых кадров"""
+    s = []
+    # получаем длительность клипа, разделив количество кадров на количество кадров в секунду
+    clip_duration = cap.get(cv2.CAP_PROP_FRAME_COUNT) / cap.get(cv2.CAP_PROP_FPS)
+    # используем np.arange() для выполнения шагов с плавающей запятой
+    for i in np.arange(0, clip_duration, 1 / saving_fps):
+        s.append(i)
+    return s
+def main(video_file):
+    filename, _ = os.path.splitext(video_file)
+    filename += "-opencv"
+    # создаем папку по названию видео файла
+    if not os.path.isdir(filename):
+        os.mkdir(filename)
+    # читать видео файл    
+    cap = cv2.VideoCapture(video_file)
+    # получить FPS видео
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    # если наше SAVING_FRAMES_PER_SECOND больше FPS видео, то установливаем минимальное
+    saving_frames_per_second = min(fps, SAVING_FRAMES_PER_SECOND)
+    # получить список длительностей кадров для сохранения
+    saving_frames_durations = get_saving_frames_durations(cap, saving_frames_per_second)
+    # начало цикла
+    count = 0
+    save_count = 0
+    while True:
+        is_read, frame = cap.read()
+        if not is_read:
+            # выйти из цикла, если нет фреймов для чтения
+            break
+        # получаем длительность, разделив текущее количество кадров на FPS
+        frame_duration = count / fps
+        try:
+            # получить самую первоначальную длительность для сохранения
+            closest_duration = saving_frames_durations[0]
+        except IndexError:
+            # список пуст, все кадры сохранены
+            break
+        if frame_duration >= closest_duration:
+            # если ближайшая длительность меньше или равна длительности текущего кадра,
+            # сохраняем фрейм
+            frame_duration_formatted = format_timedelta(timedelta(seconds=frame_duration))
+            saveframe_name = os.path.join(filename, f"frame{frame_duration_formatted}.jpg")
+            cv2.imwrite(saveframe_name, frame)
+            save_count += 1
+            print(f"{saveframe_name} сохранён")
+            # удалить текущую длительность из списка, так как этот кадр уже сохранен
+            try:
+                saving_frames_durations.pop(0)
+            except IndexError:
+                pass
+        # увеличить счечик кадров count
+        count += 1
+        
+    print(f"Итого сохранено кадров {save_count}")
+if __name__ == "__main__":
+    import sys
+    video_file = sys.argv[1]
+    import time
+    begtime = time.perf_counter()
+    main(video_file)
+    endtime = time.perf_counter()
+    print(f"\nЗатрачено, с: {endtime - begtime} ")
+extract_frames_moviepy.py
+
+from moviepy.editor import VideoFileClip
+import numpy as np
+import os
+from datetime import timedelta
+# то есть, если видео длительностью 30 секунд, сохраняется 10 кадров в секунду,
+# то всего сохраняется 300 кадров
+SAVING_FRAMES_PER_SECOND = 10
+def format_timedelta(td):
+    """Служебная функция для классного форматирования объектов timedelta (например, 00: 00: 20.05)
+    исключая микросекунды и сохраняя миллисекунды"""
+    result = str(td)
+    try:
+        result, ms = result.split(".")
+    except ValueError:
+        return "-" + result + ".00".replace(":", "-")
+    ms = int(ms)
+    ms = round(ms / 1e4)
+    return f"-{result}.{ms:02}".replace(":", "-")
+def main(video_file):
+    # загрузить видеоклип
+    video_clip = VideoFileClip(video_file)
+    # создаем папку по названию видео файла
+    filename, _ = os.path.splitext(video_file)
+    filename += "-moviepy"
+    if not os.path.isdir(filename):
+        os.mkdir(filename)
+    # если SAVING_FRAMES_PER_SECOND больше FPS видео, то установите минимальное из них
+    saving_frames_per_second = min(video_clip.fps, SAVING_FRAMES_PER_SECOND)
+    # если SAVING_FRAMES_PER_SECOND установлен в 0, шаг равен 1/fps, иначе 1/SAVING_FRAMES_PER_SECOND
+    step = 1 / video_clip.fps if saving_frames_per_second == 0 else 1 / saving_frames_per_second
+    # перебираем каждый возможный кадр
+    count = 0
+    for current_duration in np.arange(0, video_clip.duration, step):
+        # отформатируем имя файла и сохраним его
+        frame_duration_formatted = format_timedelta(timedelta(seconds=current_duration)).replace(":", "-")
+        frame_filename = os.path.join(filename, f"frame{frame_duration_formatted}.jpg")
+        # сохраняем кадр с текущей длительностью
+        video_clip.save_frame(frame_filename, current_duration)
+        count += 1
+        print(f"{frame_filename} сохранен")
+    print(f"Итого сохранено кадров: {count}")
+if __name__ == "__main__":
+    import sys
+    video_file = sys.argv[1]
+    import time
+    begtime = time.perf_counter()
+    main(video_file)
+    endtime = time.perf_counter()
+    print(f"\nЗатрачено, с: {endtime - begtime} ")
+По мотивам How to Extract Frames from Video in Python
+
+Print Friendly, PDF & Email
+CC BY-NC 4.0Как с помощью Python извлекать кадры из видео, опубликовано К ВВ, лицензия — Creative Commons Attribution-NonCommercial 4.0 International.
