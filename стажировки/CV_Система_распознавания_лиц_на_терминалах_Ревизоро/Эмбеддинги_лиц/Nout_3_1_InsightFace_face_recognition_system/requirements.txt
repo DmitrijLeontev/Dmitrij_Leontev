@@ -1,0 +1,7 @@
+insightface
+faiss-cpu
+numpy
+opencv-python
+tk
+onnxruntime
+supervision==0.2.0
