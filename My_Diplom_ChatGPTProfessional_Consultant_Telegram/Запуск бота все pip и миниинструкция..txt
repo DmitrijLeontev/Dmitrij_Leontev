@@ -1,0 +1,72 @@
+﻿Запуск бота или запуск в VSCode локально файла с API GigaChat
+
+
+      0. В корневом каталоге в файле .env прописываем наши телеграмм
+          токен и авторизационные данные от GigaChat   
+
+
+          Также в файле consultant.py в теле файла вносим вместо 
+           многоточий авторизационные данные от GigaChat
+
+
+1. Виртуальное окружение
+python -m venv .venv
+
+
+2. Активация виртуального окружения
+.venv\Scripts\activate
+
+
+3. Установка faiss-cpu
+pip install faiss-cpu
+
+
+4. Если надо, то апгрейд
+python.exe -m pip install –upgrade pip
+
+
+5. Инициируем GigaChain и GigaChat
+pip install gigachain
+            
+            pip install gigachat
+
+
+6. Устанавливаем tiktoken ,  langchain, langchain-community
+pip install tiktoken
+pip install langchain
+pip install langchain-community
+
+
+7. Сертификаты минцифры для Сбера
+pip install gigachain-cli
+
+
+gigachain install-rus-certs
+
+
+8. Устанавливаем телеграм (Если запускаем ТГ-бот- то устанавливаем, если запускаем локально файл с API GigaChat без ТГ-бота, то не используем)
+pip install python-telegram-bot
+
+
+9. Для подтягивания переменных окружения (ключей) ставим библиотеку
+pip install python-dotenv
+
+
+10. Также ставим
+pip install chardet
+
+
+11. Вытягиваем зависимости в requirements.txt
+pip freeze > requirements.txt
+
+
+12. Теперь устанавливаем зависимости из requirements.txt
+pip install -r requirements.txt
+
+
+13. Убедимся в версии python
+python —version
+
+
+14. Запускаем бота
+python consultant.py
