@@ -1,0 +1,558 @@
+Lite
+1)
+Разработать концептуальную, логическую и физическую модель базы данных для
+описанной ниже предметной области. Схемы выполнять в online редакторе draw.io
+(diagrams.net)
+2)
+Разработать БД в СУБД PostgreSQL. В качестве результата выполнения представить
+скрипты создания таблиц.
+Описание предметной области:
+Разработать БД предназначенную для системы бронирования номеров в отелях.
+База должна содержать информацию об:
+● Отелях: (название, количество звезд, описание отеля), отели могут находиться в
+разных странах и городах. Номера в отелях могут быть разных типов, каждый тип
+номера в каждом отеле имеет свою стоимость за ночь. Также нужно
+предусмотреть возможность своего описания для каждого типа номеров в
+конкретном отеле.
+● Клиентах: ФИО, номер телефона, e-mail, страна.
+● Бронированиях: дата и время заезда, дата и время выезда, отметка о предоплате.
+Решение:
+1 подход рассуждения
+
+
+Для разработки базы данных системы бронирования номеров в отелях, мы рассмотрим три уровня моделирования: концептуальную, логическую и физическую модели. Давайте разберем каждый из них.
+1. Концептуальная модель
+Концептуальная модель представляет собой высокоуровневое описание предметной области, выделяя основные сущности и их взаимосвязи.
+Сущности:
+Отель (Hotel): Название, количество звезд, описание, страна, город.
+Тип номера (RoomType): Название типа номера, описание, стоимость за ночь.
+Номер (Room): Номер комнаты, связь с типом номера и отелем.
+Клиент (Client): ФИО, номер телефона, e-mail, страна.
+Бронирование (Booking): Дата и время заезда, дата и время выезда, отметка о предоплате.
+Связи:
+Отель может иметь несколько номеров.
+Каждый номер относится к определенному типу номера.
+Клиент может иметь несколько бронирований.
+Бронирование связано с конкретным номером и клиентом.
+2. Логическая модель
+Логическая модель детализирует концептуальную модель, определяя атрибуты сущностей и типы данных.
+Таблицы и атрибуты:
+Отель (Hotel)
+hotel_id (PK, INT): Уникальный идентификатор отеля.
+name (VARCHAR): Название отеля.
+stars (INT): Количество звезд.
+description (TEXT): Описание отеля.
+country (VARCHAR): Страна.
+city (VARCHAR): Город.
+Тип номера (RoomType)
+room_type_id (PK, INT): Уникальный идентификатор типа номера.
+hotel_id (FK, INT): Ссылка на отель.
+type_name (VARCHAR): Название типа номера.
+description (TEXT): Описание типа номера.
+price_per_night (DECIMAL): Стоимость за ночь.
+Номер (Room)
+room_id (PK, INT): Уникальный идентификатор номера.
+room_type_id (FK, INT): Ссылка на тип номера.
+room_number (VARCHAR): Номер комнаты.
+Клиент (Client)
+client_id (PK, INT): Уникальный идентификатор клиента.
+full_name (VARCHAR): ФИО клиента.
+phone_number (VARCHAR): Номер телефона.
+email (VARCHAR): E-mail.
+country (VARCHAR): Страна.
+Бронирование (Booking)
+booking_id (PK, INT): Уникальный идентификатор бронирования.
+client_id (FK, INT): Ссылка на клиента.
+room_id (FK, INT): Ссылка на номер.
+check_in_date (DATETIME): Дата и время заезда.
+check_out_date (DATETIME): Дата и время выезда.
+prepayment_mark (BOOLEAN): Отметка о предоплате.
+3. Физическая модель
+Физическая модель описывает реализацию базы данных на конкретной СУБД, включая индексы, типы данных, и оптимизацию.
+Пример SQL-запросов для создания таблиц:
+
+CREATE TABLE Hotel (
+    hotel_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    stars INT,
+    description TEXT,
+    country VARCHAR(100),
+    city VARCHAR(100)
+);
+
+CREATE TABLE RoomType (
+    room_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    hotel_id INT,
+    type_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price_per_night DECIMAL(10, 2),
+    FOREIGN KEY (hotel_id) REFERENCES Hotel(hotel_id)
+);
+
+CREATE TABLE Room (
+    room_id INT PRIMARY KEY AUTO_INCREMENT,
+    room_type_id INT,
+    room_number VARCHAR(50) NOT NULL,
+    FOREIGN KEY (room_type_id) REFERENCES RoomType(room_type_id)
+);
+
+CREATE TABLE Client (
+    client_id INT PRIMARY KEY AUTO_INCREMENT,
+    full_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(20),
+    email VARCHAR(255),
+    country VARCHAR(100)
+);
+
+CREATE TABLE Booking (
+    booking_id INT PRIMARY KEY AUTO_INCREMENT,
+    client_id INT,
+    room_id INT,
+    check_in_date DATETIME NOT NULL,
+    check_out_date DATETIME NOT NULL,
+    prepayment_mark BOOLEAN,
+    FOREIGN KEY (client_id) REFERENCES Client(client_id),
+    FOREIGN KEY (room_id) REFERENCES Room(room_id)
+);
+
+Индексы:
+Для ускорения поиска можно добавить индексы на часто используемые поля, такие как hotel_id, room_type_id, client_id, и room_id.
+Оптимизация:
+Для больших объемов данных можно рассмотреть использование партиционирования таблиц, например, по датам бронирования.
+Для улучшения производительности можно использовать кэширование часто запрашиваемых данных.
+Заключение
+Эта модель предоставляет основу для разработки базы данных системы бронирования номеров в отелях. В зависимости от конкретных требований и масштаба системы, могут потребоваться дополнительные доработки и оптимизации.
+
+
+Приступим
+Концептуальная модель базы данных для системы бронирования номеров в отелях
+Сущности и их атрибуты:
+Отель (Hotel)
+Атрибуты: Название, Количество звезд, Описание, Страна, Город.
+Связи:
+Отель может иметь несколько номеров (1 ко многим с сущностью Номер).
+Отель может иметь несколько типов номеров (1 ко многим с сущностью Тип номера).
+Тип номера (RoomType)
+Атрибуты: Название типа, Описание, Стоимость за ночь.
+Связи:
+Тип номера принадлежит одному отелю (многие к 1 с сущностью Отель).
+Тип номера может быть связан с несколькими номерами (1 ко многим с сущностью Номер).
+Номер (Room)
+Атрибуты: Номер комнаты.
+Связи:
+Номер принадлежит одному типу номера (многие к 1 с сущностью Тип номера).
+Номер принадлежит одному отелю (многие к 1 с сущностью Отель).
+Номер может быть связан с несколькими бронированиями (1 ко многим с сущностью Бронирование).
+Клиент (Client)
+Атрибуты: ФИО, Номер телефона, E-mail, Страна.
+Связи:
+Клиент может иметь несколько бронирований (1 ко многим с сущностью Бронирование).
+Бронирование (Booking)
+Атрибуты: Дата и время заезда, Дата и время выезда, Отметка о предоплате.
+Связи:
+Бронирование связано с одним клиентом (многие к 1 с сущностью Клиент).
+Бронирование связано с одним номером (многие к 1 с сущностью Номер).
+
+Визуализация связей:
+Отель (Hotel)
+Связан с Тип номера (RoomType) (1 ко многим).
+Связан с Номер (Room) (1 ко многим).
+Тип номера (RoomType)
+Связан с Номер (Room) (1 ко многим).
+Номер (Room)
+Связан с Бронирование (Booking) (1 ко многим).
+Клиент (Client)
+Связан с Бронирование (Booking) (1 ко многим).
+Бронирование (Booking)
+Связано с Клиент (Client) (многие к 1).
+Связано с Номер (Room) (многие к 1).
+
+Как нарисовать схему:
+Нарисуйте прямоугольники для каждой сущности:
+Отель (Hotel)
+Тип номера (RoomType)
+Номер (Room)
+Клиент (Client)
+Бронирование (Booking)
+Внутри каждого прямоугольника перечислите атрибуты сущности.
+Нарисуйте линии между сущностями, чтобы показать связи:
+Один ко многим (1:M): Например, один отель может иметь много номеров.
+Многие к одному (M:1): Например, много бронирований могут быть связаны с одним клиентом.
+Подпишите связи:
+Например, "Отель имеет много номеров" или "Бронирование связано с одним номером".
+Пример текстового представления связей:
+Отель (Hotel)
+   |
+   | (1:M)
+   v
+Тип номера (RoomType)
+   |
+   | (1:M)
+   v
+Номер (Room)
+   |
+   | (1:M)
+   v
+Бронирование (Booking)
+   ^
+   | (M:1)
+   |
+Клиент (Client)
+
+2. Строим логическую и физическую модель базы данных для системы бронирования номеров в отелях
+1. Сущности (Таблицы) и их атрибуты
+
+
+1.1. Отель (Hotel)
+Атрибут
+Тип данных
+Ограничения
+Описание
+hotel_id
+INT
+PRIMARY KEY, AUTO_INCREMENT
+Уникальный идентификатор
+name
+VARCHAR(255)
+NOT NULL
+Название отеля
+stars
+TINYINT
+CHECK (1 ≤ stars ≤ 5)
+Количество звезд (1-5)
+description
+TEXT
+
+
+Описание отеля
+country
+VARCHAR(100)
+NOT NULL
+Страна расположения
+city
+VARCHAR(100)
+NOT NULL
+Город расположения
+
+
+1.2. Тип номера (RoomType)
+Атрибут
+Тип данных
+Ограничения
+Описание
+room_type_id
+INT
+PRIMARY KEY, AUTO_INCREMENT
+Уникальный идентификатор
+hotel_id
+INT
+FOREIGN KEY (Hotel)
+Ссылка на отель
+type_name
+VARCHAR(100)
+NOT NULL
+Название типа (например, "Люкс")
+description
+TEXT
+
+
+Описание типа номера
+price_per_night
+DECIMAL(10,2)
+NOT NULL, ≥ 0
+Стоимость за ночь
+
+
+
+
+
+1.3. Номер (Room)
+Атрибут
+Тип данных
+Ограничения
+Описание
+room_id
+INT
+PRIMARY KEY, AUTO_INCREMENT
+Уникальный идентификатор
+hotel_id
+INT
+FOREIGN KEY (Hotel)
+Ссылка на отель
+room_type_id
+INT
+FOREIGN KEY (RoomType)
+Ссылка на тип номера
+room_number
+VARCHAR(50)
+NOT NULL, UNIQUE
+Номер комнаты (например, "101A")
+
+
+1.4. Клиент (Client)
+Атрибут
+Тип данных
+Ограничения
+Описание
+client_id
+INT
+PRIMARY KEY, AUTO_INCREMENT
+Уникальный идентификатор
+full_name
+VARCHAR(255)
+NOT NULL
+ФИО клиента
+phone_number
+VARCHAR(20)
+NOT NULL, UNIQUE
+Номер телефона
+email
+VARCHAR(255)
+NOT NULL, UNIQUE
+Электронная почта
+country
+VARCHAR(100)
+NOT NULL
+Страна клиента
+
+
+
+
+
+
+
+1.5. Бронирование (Booking)
+Атрибут
+Тип данных
+Ограничения
+Описание
+booking_id
+INT
+PRIMARY KEY, AUTO_INCREMENT
+Уникальный идентификатор
+client_id
+INT
+FOREIGN KEY (Client)
+Ссылка на клиента
+room_id
+INT
+FOREIGN KEY (Room)
+Ссылка на номер
+check_in_date
+DATETIME
+NOT NULL
+Дата и время заезда
+check_out_date
+DATETIME
+NOT NULL
+Дата и время выезда
+prepayment_mark
+BOOLEAN
+DEFAULT FALSE
+Отметка о предоплате
+
+
+2. Связи между сущностями
+2.1. Схема связей
+Отель (Hotel)
+│
+├─< Тип номера (RoomType) 
+│      │
+│      └─< Номер (Room) 
+│            │
+│            └─< Бронирование (Booking)
+│                  ↑
+│                  │
+└───────────────< Клиент (Client)
+2.2. Описание связей
+Отель (Hotel) → Тип номера (RoomType)
+Тип связи: 1 ко многим (1:M).
+Описание: Один отель может иметь несколько типов номеров (например, "Стандарт", "Люкс").
+Внешний ключ: RoomType.hotel_id → Hotel.hotel_id.
+Отель (Hotel) → Номер (Room)
+Тип связи: 1 ко многим (1:M).
+Описание: Один отель содержит множество номеров.
+Внешний ключ: Room.hotel_id → Hotel.hotel_id.
+Тип номера (RoomType) → Номер (Room)
+Тип связи: 1 ко многим (1:M).
+Описание: Один тип номера (например, "Люкс") может быть присвоен нескольким номерам.
+Внешний ключ: Room.room_type_id → RoomType.room_type_id.
+Клиент (Client) → Бронирование (Booking)
+Тип связи: 1 ко многим (1:M).
+Описание: Один клиент может совершить несколько бронирований.
+Внешний ключ: Booking.client_id → Client.client_id.
+Номер (Room) → Бронирование (Booking)
+Тип связи: 1 ко многим (1:M).
+Описание: Один номер может быть забронирован несколько раз (в разные периоды).
+Внешний ключ: Booking.room_id → Room.room_id.
+
+3. Нормализация
+Модель соответствует 3-й нормальной форме (3NF):
+1NF: Все атрибуты атомарны (нет составных полей).
+Пример: check_in_date и check_out_date хранятся отдельно.
+2NF: Нет частичных зависимостей от первичного ключа.
+Пример: RoomType.price_per_night зависит от полного ключа room_type_id, а не от hotel_id.
+3NF: Нет транзитивных зависимостей.
+Пример: Hotel.city зависит только от hotel_id, а не от других атрибутов.
+Комментарии
+Проверка дат: Добавлено ограничение CHECK (check_out_date > check_in_date), чтобы дата выезда была позже даты заезда.
+Уникальность номеров: Поле room_number уникально в рамках всей системы. Если требуется уникальность в рамках отеля, можно добавить составной ключ: UNIQUE (hotel_id, room_number).
+Расширяемость: При необходимости можно добавить таблицы:
+Payment (оплаты бронирований),
+Review (отзывы клиентов),
+HotelAmenities (удобства отеля).
+См. draw.io скрины
+
+Вопрос 2. Теперь создадим скрипты БД в СУБД PostgreeSQL
+
+ Подключение к PostgreSQL в DBeaver
+Откройте DBeaver.
+Нажмите Файл → Создать → Подключение к базе данных.
+Выберите PostgreSQL из списка СУБД → Далее.
+Заполните параметры:
+Хост/порт: localhost:5432 (по умолчанию).
+База данных: postgres (или создайте новую, например, hotel_booking).
+Пользователь/Пароль: postgres и ваш пароль.
+Нажмите Тест соединения → Убедитесь, что подключение успешно → Готово.
+
+Шаг 3: Создание базы данных
+В дереве подключений (слева) найдите ваше подключение → ПКМ → Создать → База данных.
+Укажите имя базы (например, hotel_booking) → ОК.
+Переподключитесь к новой базе:
+ПКМ на старом подключении → Изменить подключение → Укажите новую базу → Сохранить.
+
+Шаг 4: Создание таблиц
+Откройте SQL-редактор (Ctrl+Enter) и выполните запросы по очереди.
+4.1. Таблица hotel
+CREATE TABLE hotel (
+    hotel_id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    stars SMALLINT NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    description TEXT,
+    country VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL
+);
+
+4.2. Таблица room_type
+CREATE TABLE room_type (
+    room_type_id SERIAL PRIMARY KEY,
+    hotel_id INT NOT NULL REFERENCES hotel(hotel_id) ON DELETE CASCADE,
+    type_name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price_per_night NUMERIC(10, 2) NOT NULL CHECK (price_per_night >= 0)
+);
+
+4.3. Таблица room
+CREATE TABLE room (
+    room_id SERIAL PRIMARY KEY,
+    hotel_id INT NOT NULL REFERENCES hotel(hotel_id) ON DELETE CASCADE,
+    room_type_id INT NOT NULL REFERENCES room_type(room_type_id) ON DELETE CASCADE,
+    room_number VARCHAR(50) NOT NULL,
+    UNIQUE (hotel_id, room_number)
+);
+
+4.4. Таблица client
+CREATE TABLE client (
+    client_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(20) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    country VARCHAR(100) NOT NULL
+);
+
+4.5. Таблица booking
+CREATE TABLE booking (
+    booking_id SERIAL PRIMARY KEY,
+    client_id INT NOT NULL REFERENCES client(client_id) ON DELETE CASCADE,
+    room_id INT NOT NULL REFERENCES room(room_id) ON DELETE CASCADE,
+    check_in_date TIMESTAMP NOT NULL,
+    check_out_date TIMESTAMP NOT NULL,
+    prepayment_mark BOOLEAN DEFAULT FALSE,
+    CHECK (check_out_date > check_in_date)
+);
+ 
+Шаг 5: Создание индексов
+-- Для отелей
+CREATE INDEX idx_hotel_location ON hotel (country, city);
+
+-- Для типов номеров
+CREATE INDEX idx_room_type_price ON room_type (price_per_night);
+
+-- Для бронирований
+CREATE INDEX idx_booking_dates ON booking (check_in_date, check_out_date);
+
+Шаг 6: Триггер для проверки доступности номера
+Создайте функцию триггера:
+CREATE OR REPLACE FUNCTION check_room_availability()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM booking
+        WHERE room_id = NEW.room_id
+        AND (
+            (NEW.check_in_date BETWEEN check_in_date AND check_out_date)
+            OR
+            (NEW.check_out_date BETWEEN check_in_date AND check_out_date)
+        )
+    THEN
+        RAISE EXCEPTION 'Номер уже забронирован на выбранные даты';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+Привяжите триггер к таблице booking:
+CREATE TRIGGER trg_check_room_availability
+BEFORE INSERT OR UPDATE ON booking
+FOR EACH ROW EXECUTE FUNCTION check_room_availability();
+ 
+Шаг 7: Добавление тестовых данных
+-- Отель
+INSERT INTO hotel (name, stars, country, city)
+VALUES ('Grand Hotel', 5, 'Россия', 'Москва');
+
+-- Тип номера
+INSERT INTO room_type (hotel_id, type_name, price_per_night)
+VALUES (1, 'Люкс', 15000.00);
+
+-- Номер
+INSERT INTO room (hotel_id, room_type_id, room_number)
+VALUES (1, 1, '101');
+
+-- Клиент
+INSERT INTO client (full_name, phone_number, email, country)
+VALUES ('Иванов Иван', '+79991234567', 'ivanov@mail.ru', 'Россия');
+
+-- Бронирование
+INSERT INTO booking (client_id, room_id, check_in_date, check_out_date)
+VALUES (1, 1, '2023-12-01 14:00:00', '2023-12-05 12:00:00');
+ 
+Шаг 8: Проверка данных
+Выполните запросы для проверки:
+-- Все отели
+SELECT * FROM hotel;
+
+-- Все бронирования
+SELECT * FROM booking;
+
+Попробуйте добавить бронирование на занятые даты, чтобы проверить триггер:
+-- Это вызовет ошибку
+INSERT INTO booking (client_id, room_id, check_in_date, check_out_date)
+VALUES (1, 1, '2023-12-03 14:00:00', '2023-12-04 12:00:00');
+
+Полезные советы для DBeaver
+Просмотр структуры таблиц:
+Раскройте базу данных в дереве подключений → Таблицы → Дважды щелкните на таблице, чтобы увидеть её структуру.
+Редактирование данных:
+ПКМ на таблице → Данные → Редактировать данные (удобно для ручного ввода).
+Экспорт/Импорт данных:
+ПКМ на таблице → Импорт/Экспорт данных → Выберите формат (CSV, JSON, Excel).
+Резервное копирование:
+ПКМ на базе данных → Инструменты → Дамп базы данных → Сохраните SQL-файл.
+
+Если возникнут ошибки, проверьте:
+Правильность синтаксиса SQL.
+Наличие прав у пользователя postgres.
+Корректность ссылок на внешние ключи (например, hotel_id в room_type).
+Все получилось:  смотреть скрины 
