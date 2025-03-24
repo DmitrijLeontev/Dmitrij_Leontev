@@ -1,0 +1,397 @@
+Задание 1
+Для каждого заказа отобразить информацию:
+Наименование продукта | дата заказа | количество товара в заказе | общее количество
+заказов по данному товару
+Решение:
+SELECT
+   p.product_name AS "Наименование продукта",
+   c.receipt_date AS "Дата заказа",
+   c.amount AS "Количество товара в заказе",
+   COUNT(*) OVER(PARTITION BY c.product) AS "Общее количество заказов по товару"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id;
+
+
+Разбор задания
+1. SELECT (Выбор данных)
+p.product_name AS "Наименование продукта"
+p.product_name — берем название продукта из таблицы product (через алиас p).
+AS "Наименование продукта" — переименовываем колонку для красивого отображения.
+
+c.receipt_date AS "Дата заказа"
+c.receipt_date — дата поступления заказа из таблицы consignment (через алиас c).
+AS "Дата заказа" — переименование колонки.
+
+c.amount AS "Количество товара в заказе"
+c.amount — количество товара в текущем заказе из таблицы consignment.
+AS "Количество товара в заказе" — переименование колонки.
+
+COUNT(*) OVER(PARTITION BY c.product) AS "Общее количество заказов по товару"
+COUNT(*) — подсчитывает количество строк (заказов).
+OVER(PARTITION BY c.product) — разбивает данные на группы по колонке product (каждая группа — один товар).
+Результат: для каждого товара выводится общее количество заказов, но строки не группируются (в отличие от GROUP BY).
+
+2. FROM (Источники данных)
+FROM 
+    warehause.consignment c
+    JOIN warehause.product p ON c.product = p.id
+warehause.consignment c — таблица с заказами. Алиас c используется для упрощения запроса.
+JOIN warehause.product p — соединяем с таблицей продуктов. Алиас p для таблицы product.
+ON c.product = p.id — условие соединения: product в таблице заказов соответствует id в таблице продуктов.
+
+Как это работает вместе?
+Соединение таблиц: Для каждого заказа из consignment находим название товара через JOIN с таблицей product.
+Оконная функция: Для каждого товара (PARTITION BY c.product) считаем, сколько всего заказов есть в таблице consignment для этого товара.
+Результат: Каждая строка вывода содержит:
+Название товара,
+Дату заказа,
+Количество товара в этом заказе,
+Общее количество заказов для данного товара (одинаковое для всех строк с одним product).
+Задание выполнено.
+
+
+
+
+Задание 2
+Используя CTE вывести все заказы в которых были куплены и доставлены товары
+продававшиеся в августе
+Решение:
+SELECT
+   p.product_name AS "Наименование продукта",
+   c.receipt_date AS "Дата заказа",
+   c.amount AS "Количество товара в заказе",
+   COUNT(*) OVER(PARTITION BY c.product) AS "Общее количество заказов по товару"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id;
+--Задание 2
+--Используя CTE вывести все заказы в которых были куплены и доставлены товары
+--продававшиеся в августе
+WITH august_orders AS (
+   SELECT DISTINCT o.product
+   FROM warehause.orders o
+   WHERE
+       EXTRACT(MONTH FROM o.order_date) = 8  -- Покупка в августе
+)
+SELECT
+   p.product_name AS "Наименование продукта",
+   o.order_date AS "Дата покупки",
+   c.receipt_date AS "Дата доставки",
+   c.amount AS "Количество товара"
+FROM
+   warehause.orders o
+   JOIN warehause.consignment c ON o.product = c.product  -- Связь по продукту
+   JOIN august_orders ao ON o.product = ao.product        -- Только товары из августовских заказов
+   JOIN warehause.product p ON o.product = p.id
+WHERE
+   c.receipt_date IS NOT NULL;  -- Доставка подтверждена
+Разбор:
+Пояснение:
+CTE august_orders:
+Выбирает уникальные товары (DISTINCT product), которые были заказаны в августе (из таблицы orders).
+Основной запрос:
+Соединяет таблицы orders и consignment по колонке product.
+Фильтрует только доставленные заказы (c.receipt_date IS NOT NULL).
+Выводит:
+Название товара,
+Дату покупки (из orders),
+Дату доставки (из consignment),
+Количество товара.
+Ключевые моменты:
+Связь через product: Таблицы orders и consignment соединяются по колонке product, что позволяет связать заказы с поставками.
+Фильтрация в CTE: Только товары, заказанные в августе.
+Фильтрация доставки: receipt_date IS NOT NULL гарантирует, что заказ был доставлен.
+
+
+Задание 3
+Для каждой поставки вывести следующую информацию:
+Номер поставки| наименование продукта| дата поставки| количество товара в поставке|
+количество товара в предыдущей поставке
+Решение:
+   --Задание 3
+--Для каждой поставки вывести следующую информацию:
+--Номер поставки| наименование продукта| дата поставки| количество товара в поставке|
+--количество товара в предыдущей поставке
+SELECT
+   c.id AS "Номер поставки",
+   p.product_name AS "Наименование продукта",
+   c.receipt_date AS "Дата поставки",
+   c.amount AS "Количество товара в поставке",
+   LAG(c.amount) OVER (
+       PARTITION BY c.product
+       ORDER BY c.receipt_date
+   ) AS "Количество товара в предыдущей поставке"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id;
+Разбор:
+Пояснение:
+Оконная функция LAG():
+LAG(c.amount) — возвращает значение amount из предыдущей строки.
+PARTITION BY c.product — разделение данных по товарам (для каждого товара отсчет начинается заново).
+ORDER BY c.receipt_date — сортировка поставок по дате (чтобы определить "предыдущую" поставку).
+Столбцы:
+id — уникальный идентификатор поставки из таблицы consignment.
+product_name — название товара из таблицы product.
+receipt_date — дата поставки.
+amount — количество товара в текущей поставке.
+LAG(...) — количество товара в предыдущей поставке для этого же товара.
+Ключевые моменты:
+LAG() и порядок сортировки: Если не указать ORDER BY, порядок строк будет неопределенным, и результат может быть некорректным.
+PARTITION BY: Без него функция LAG() будет учитывать все поставки, а не только для текущего товара.
+NULL для первой поставки: У первого товара в группе нет предыдущей поставки, поэтому LAG() вернет NULL.
+
+Дополнительные опции:
+Указание смещения: LAG(c.amount, 2) вернет значение не из предыдущей, а из позапрошлой поставки.
+Замена NULL: Используйте COALESCE(), чтобы заменить NULL на 0 или другое значение:
+COALESCE(LAG(c.amount) OVER (...), 0) AS "Предыдущая поставка"
+
+
+Задание 4
+Для каждого заказа вычислить долю стоимости заказа от общей стоимости заказов по
+данному продукту.
+Решение:
+SELECT
+   c.id AS "Номер поставки",
+   p.product_name AS "Наименование продукта",
+   c.amount AS "Количество товара",
+   (c.amount * p.buy_price) AS "Стоимость заказа",  -- Предполагаем, что buy_price есть в product
+   (c.amount * p.buy_price) * 100.0 / SUM(c.amount * p.buy_price) OVER (PARTITION BY c.product) AS "Доля, %"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id;
+
+
+разбор:
+Расчет стоимости заказа:
+c.amount * p.buy_price — стоимость поставки (количество товара × цена за единицу).
+Если в данных есть готовая колонка со стоимостью (например, total_price), используйте ее вместо умножения.
+Оконная функция для общей стоимости:
+SUM(c.amount * p.buy_price) OVER (PARTITION BY c.product) — суммарная стоимость всех поставок по текущему товару.
+Вычисление доли:
+(стоимость_заказа / общая_стоимость_по_товару) * 100 — доля в процентах.
+Ключевые моменты:
+Округление: Добавьте ROUND(), если нужно округлить проценты:
+ROUND((c.amount * p.buy_price) * 100.0 / SUM(...) OVER (...), 2) AS "Доля, %"
+Деление на ноль: Если товар не имеет поставок, добавьте проверку:
+CASE 
+  WHEN SUM(...) OVER (...) = 0 THEN 0 
+  ELSE (стоимость_заказа / общая_стоимость) * 100 
+END
+
+
+Задание 5
+Для каждой поставки вывести следующую информацию:
+Номер поставки| наименование продукта| дата поставки| количество товара в поставке|общее количество товара на поставленного на текущую дату
+Решение:
+SELECT
+   c.id AS "Номер поставки",
+   p.product_name AS "Наименование продукта",
+   c.receipt_date AS "Дата поставки",
+   c.amount AS "Количество товара в поставке",
+   SUM(c.amount) OVER (
+       PARTITION BY c.product
+       ORDER BY c.receipt_date
+       ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+   ) AS "Общее количество на текущую дату"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id;
+
+
+Разбор:
+Оконная функция SUM():
+PARTITION BY c.product — группировка по товару (накопительная сумма считается отдельно для каждого продукта).
+ORDER BY c.receipt_date — сортировка поставок по дате (сумма накапливается в хронологическом порядке).
+ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW — явное указание диапазона суммирования (от первой строки до текущей). В PostgreSQL это поведение по умолчанию при наличии ORDER BY, но лучше указать явно для ясности.
+Результат:
+Для каждой поставки выводится накопительная сумма товара, поставленного по текущий день включительно для данного продукта.
+Ключевые моменты:
+Если нужно учитывать только уникальные даты:
+Замените ROWS на RANGE:
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+В этом случае все строки с одинаковой датой будут считаться одной группой, и результат для них будет одинаковым:
+| 2 | 2023-08-05 | 30 | 80 |
+| 3 | 2023-08-05 | 20 | 80 |  -- Сумма не увеличивается, так как дата та же
+Сортировка внутри одной даты:
+Если важно учитывать порядок поставок в пределах одного дня, добавьте второе условие сортировки (например, по id):
+ORDER BY c.receipt_date, c.id
+NULL-значения:
+Если в receipt_date есть NULL, такие строки будут обработаны отдельно (обычно помещаются в конец).
+
+
+Задание 6
+Для каждого товара вывести самый ранний его заказ.
+Решение:
+CTE first_orders:
+ROW_NUMBER() OVER (PARTITION BY product ORDER BY receipt_date) — нумерует поставки для каждого товара (PARTITION BY product) в хронологическом порядке (ORDER BY receipt_date).
+Первой поставке в группе присваивается номер 1.
+Основной запрос:
+Фильтрует только первые поставки (WHERE rn = 1).
+Выводит детали: номер поставки, название товара, дату и количество.
+-- 1 вариант решения
+WITH first_orders AS (
+   SELECT
+       c.id,
+       p.product_name,
+       c.receipt_date,
+       c.amount,
+       ROW_NUMBER() OVER (
+           PARTITION BY c.product
+           ORDER BY c.receipt_date
+       ) AS rn
+   FROM
+       warehause.consignment c
+       JOIN warehause.product p ON c.product = p.id
+)
+SELECT
+   id AS "Номер поставки",
+   product_name AS "Наименование продукта",
+   receipt_date AS "Дата поставки",
+   amount AS "Количество товара"
+FROM first_orders
+WHERE rn = 1;
+
+
+--второй вариант решения
+--Альтернатива с DISTINCT ON (только для PostgreSQL):
+SELECT DISTINCT ON (c.product)
+   c.id AS "Номер поставки",
+   p.product_name AS "Наименование продукта",
+   c.receipt_date AS "Дата поставки",
+   c.amount AS "Количество товара"
+FROM
+   warehause.consignment c
+   JOIN warehause.product p ON c.product = p.id
+ORDER BY
+   c.product, c.receipt_date;
+Разбор:
+Плюсы:
+Более компактный синтаксис.
+Автоматически выбирает первую запись для каждого товара при сортировке по receipt_date.
+
+Ключевые моменты:
+Если несколько поставок имеют одинаковую минимальную дату, ROW_NUMBER() выберет только одну (первую в порядке сортировки). Чтобы вывести все, используйте RANK():
+RANK() OVER (PARTITION BY product ORDER BY receipt_date) AS rank
+...
+WHERE rank = 1;
+Сортировка по времени: Если в receipt_date есть время, добавьте его в ORDER BY для точности:
+ORDER BY c.receipt_date, c.id;
+Задание 7
+Разработать витрину, содержащую данные о заказах клиентов в формате:
+Номер заказа, дата заказа, статус заказа, ФИО клиента, город клиента, наименование
+товара, количество товара в заказе, цена товара, общая стоимость заказа, прибыль от
+заказа ( (цена продажи-цена покупки)*количество товара в заказе).
+Решение:
+Вариант 1
+SELECT
+   o.id AS "Номер заказа",
+   o.order_date AS "Дата заказа",
+   o.status AS "Статус заказа",
+   CONCAT(c.name, ' ', c.last_name) AS "ФИО клиента",
+   city.city_name AS "Город клиента",
+   p.product_name AS "Наименование товара",
+   o.amount AS "Количество товара",
+   p.sell_price AS "Цена товара",
+   (o.amount * p.sell_price) AS "Общая стоимость заказа",
+   ((p.sell_price - p.buy_price) * o.amount) AS "Прибыль от заказа"
+FROM
+   warehause.orders o
+JOIN
+   warehause.client c ON o.client = c.id
+JOIN
+   warehause.city ON c.city = city.id
+JOIN
+   warehause.product p ON o.product = p.id;
+Соединение таблиц:
+orders → client (для данных о клиенте).
+client → city (для определения города клиента).
+orders → product (для данных о товаре и ценах).
+Вычисляемые поля:
+ФИО клиента: объединение name и last_name из таблицы client.
+Общая стоимость заказа: произведение количества товара (amount) на цену продажи (sell_price).
+Прибыль от заказа: разница между ценой продажи и закупочной ценой (sell_price - buy_price), умноженная на количество товара.
+Особенности:
+Использован INNER JOIN, чтобы исключить заказы с некорректными или отсутствующими данными (например, без привязки к клиенту или товару).
+Если требуется учитывать все заказы (включая невалидные), можно заменить JOIN на LEFT JOIN.
+Витрина готова к использованию и может быть материализована в хранилище для ускорения аналитических запросов.
+–Вариант 2
+-- Создание представления для витрины данных
+CREATE OR REPLACE VIEW warehause.order_dashboard AS
+SELECT
+   o.id AS "Номер заказа",
+   o.order_date AS "Дата заказа",
+   o.status AS "Статус заказа",
+   CONCAT(c.name, ' ', c.last_name) AS "ФИО клиента",
+   city.city_name AS "Город клиента",
+   p.product_name AS "Наименование товара",
+   o.amount AS "Количество товара",
+   p.sell_price AS "Цена товара",
+   (o.amount * p.sell_price) AS "Общая стоимость заказа",
+   ((p.sell_price - p.buy_price) * o.amount) AS "Прибыль от заказа"
+FROM
+   warehause.orders o
+INNER JOIN warehause.client c
+   ON o.client = c.id
+INNER JOIN warehause.city
+   ON c.city = city.id
+INNER JOIN warehause.product p
+   ON o.product = p.id;
+Объяснение решения:
+Создание VIEW:
+Преобразует сложный запрос в постоянную витрину данных
+Позволяет обращаться к данным через простой SELECT
+Сохраняет актуальность данных при изменении исходных таблиц
+Оптимизация JOIN:
+Использование INNER JOIN предполагает строгую связь между таблицами
+При необходимости можно заменить на LEFT JOIN для сохранения заказов без привязки к клиенту/товару
+Индексы:
+Ускоряют поиск по ключевым полям
+Оптимизируют выполнение JOIN-операций
+Созданы для часто используемых полей связей
+--Третий вариант
+-- Пример использования CTE для большей читаемости
+WITH order_details AS (
+   SELECT
+       o.*,
+       c.name,
+       c.last_name,
+       c.city AS city_id,
+       p.product_name,
+       p.buy_price,
+       p.sell_price
+   FROM
+       warehause.orders o
+   JOIN warehause.client c ON o.client = c.id
+   JOIN warehause.product p ON o.product = p.id
+)
+SELECT
+   od.id,
+   od.order_date,
+   od.status,
+   CONCAT(od.name, ' ', od.last_name),
+   city.city_name,
+   od.product_name,
+   od.amount,
+   od.sell_price,
+   (od.amount * od.sell_price),
+   ((od.sell_price - od.buy_price) * od.amount)
+FROM
+   order_details od
+JOIN warehause.city
+   ON od.city_id = city.id;
+Преимущества решения:
+Стандартизированный доступ к данным через VIEW
+Улучшенная производительность за счет индексов
+Возможность расширения функционала (добавление оконных функций, фильтров)
+Соответствие требованиям задания и лучшим практикам из лекционных материалов
+Для использования витрины достаточно выполнить запрос:
+SELECT * FROM warehause.order_dashboard;
+
+
+
+
+Задание 8
+Создать необходимые индексы для таблицы consignment
+решено в 7 задании.
