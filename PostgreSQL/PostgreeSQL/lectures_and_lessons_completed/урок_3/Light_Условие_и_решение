@@ -1,0 +1,102 @@
+Д/з Урок 3 Light PostgreSQL к Лекции 3
+
+
+Задание 1
+Выведите строку ‘I aM rEalLy CoOl In Text fUNCtioNs’ в верхнем и нижнем регистре.
+select upper('I aM rEalLy CoOl In Text fUNCtioNs')
+
+
+select lower('I aM rEalLy CoOl In Text fUNCtioNs')
+
+
+Задание 2
+Узнайте длину этой строки.
+select length('Узнайте длину этой строки.')
+26 знаков
+
+
+Задание 3
+Работая со строкой ‘The capybara is the kindest animal in the world.’, выведите:
+- первые три символа
+- все оставшиеся символы, начиная с четвёртого
+select left('The capybara is the kindest animal in the world.', 3);
+select substr('The capybara is the kindest animal in the world.', 4);
+
+
+Задание 4
+Удалите лишние символы пробела из строки ‘ Hello ’.
+select trim(' ' from ' Hello ');
+
+
+Задание 5
+Из таблицы поставок выведите все поставки, сделанные в июле месяце любого года.
+select * from consignment c
+where receipt_date between '2022-07-01' and '2022-07-31';
+
+
+Задание 6
+Вывести все товары, которые никто не покупал в августе 2022 года.
+--Сначала выведем то, что купили в августе
+select * from warehause.orders o
+where o.order_date between '2022-08-01' and '2022-08-31';
+--затем посмотрим таблицу product и видим sell_price NULL(нет цены)
+select * from warehause.product p;
+--теперь выводим все товары, которые никто не покупал в августе 2022 года
+select p.product_name from warehause.product p
+where sell_price not in
+(select product from warehause.orders o
+where o.order_date between '2022-08-01' and '2022-08-31');
+Задание 7
+Вывести товары, цена которых больше, чем цена самого дорогого товара из КНР.
+–Соединяем (join-им) таблицы: Страна(country) ,  Производители(manufacturer) и Товары(product)
+select *  from warehause.country c
+join warehause.manufacturer m on
+m.country  = c.id
+join warehause.product p on
+p.manufacturer = m.id;
+--Теперь выводим только то что пригодится(country_name, p.product_name, sell_price)
+select country_name, p.product_name, sell_price  from warehause.country c
+join warehause.manufacturer m on
+m.country  = c.id
+join warehause.product p on
+p.manufacturer = m.id
+--Теперь выводим самый дорогой товар из КНР
+select max(p2.sell_price) from warehause.product p2
+join warehause.manufacturer m on p2.manufacturer = m.id
+join warehause.country c on m.country = c.id
+where c.country_name LIKE 'КНР%'
+--наконец выводим товары, цена которых больше, чем цена самого дорогого товара из КНР
+select p.product_name, p.buy_price, p.sell_price from warehause.product p
+where p.sell_price > (select max(p2.sell_price) from warehause.product p2
+join warehause.manufacturer m on p2.manufacturer = m.id
+join warehause.country c on m.country = c.id
+where c.country_name LIKE 'КНР%');
+
+
+
+
+Задание 8
+Добавить в таблицу со странами страну ‘Марокко’.
+select * from country c;
+-Добавляем ‘Марокко’
+insert into warehause.country (id, country_name)
+values (5, 'Марокко');
+--Проверяем
+select * from country c;
+--Удаляем ‘Марокко’
+delete from warehause.country
+where country_name like 'Марокко%';
+--Проверяем
+select * from country c;
+
+
+Задание 9
+Заполнить все незаполненные телефоны клиентов значением ‘89990009900’.
+--Проверяем
+select * from warehause.client c;
+
+
+--Заполняем
+update warehause.client
+set phone = '89990009900'
+where phone is NULL;
