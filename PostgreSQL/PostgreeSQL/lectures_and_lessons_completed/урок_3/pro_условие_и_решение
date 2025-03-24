@@ -1,0 +1,151 @@
+Д/з Урок 3 Pro PostgreSQL к Лекции 3
+Задание 1
+Выяснить сколько дней прошло с начала 2023 года.
+select date '2025-03-04' - date '2023-01-01';
+прошло 793 дня
+
+
+Задание 2
+Вывести количество заказов на пылесосы за все время.
+select * from warehause.consignment c;
+select * from warehause.product p;
+--Выводим все наименования пылесосов
+select * from warehause.product p
+where p.product_name ilike '%ПЫЛЕСОС%' or p.product_name ilike '%Robot%';
+--Выводим наименования, заказы по датам, конечное количество заказов по датам на каждое наименование и на кождую дату
+select
+   p.product_name,
+   o.order_date,
+   sum(o.amount) as total_orders
+from warehause.orders o
+join warehause.product p on o.product = p.id
+join warehause.consignment c on p.id = c.product
+where p.product_name ilike '%ПЫЛЕСОС%' or p.product_name ilike '%Robot%'
+group by p.product_name, o.order_date
+order by o.order_date;
+--Получаем общее число заказов на пылесосы за все время. Используем оконную функцию
+select
+   p.product_name,
+   o.order_date,
+   sum(o.amount) as total_orders,
+   sum(sum(o.amount)) over () as total_orders_all  -- добавляем сумму всех заказов
+from warehause.orders o
+join warehause.product p on o.product = p.id
+join warehause.consignment c on p.id = c.product
+where p.product_name ilike '%ПЫЛЕСОС%' or p.product_name ilike '%Robot%'
+group by p.product_name, o.order_date
+order by o.order_date;
+--Проверим
+select sum(o.amount) AS total_orders_all
+from warehause.orders o
+join warehause.product p on o.product = p.id
+join warehause.consignment c on p.id = c.product
+where p.product_name ilike '%ПЫЛЕСОС%' or p.product_name ilike '%Robot%';
+--Задача решена. Ответ:16 пылесосов.
+
+
+
+
+Задание 3
+Вывести день недели первого дня текущего года.
+--можно использовать функцию to_char для получения дня недели первого дня текущего года:
+select to_char(date_trunc('year', current_date), 'day') as first_day_of_year;
+--Разбор запроса:
+--current_date — текущая дата.
+--date_trunc('year', current_date) — обрезает текущую дату до первого дня года (например, превращает 2025-03-04 в 2025-01-01).
+--to_char(..., 'day') — преобразует дату в текст с названием дня недели.
+--ответ wednesday(среда)
+--Если нужен день недели в числовом формате (1 = воскресенье, 7 = суббота)
+select extract(isodow from date_trunc('year', current_date)) as first_day_of_year;
+--isodow( 1 = понедельник, 7 = воскресенье).
+--ответ 3(третий день с понедельника)
+
+
+Задание 4 .
+Из таблицы поставок выведите все поставки, сделанные в первой половине любого месяца.
+select * from warehause.consignment c
+where extract(day from c.receipt_date) <= 15;
+--extract(day from c.receipt_date) — извлекает день месяца из даты поставки.
+-- <= 15 — выбирает только те строки, где день месяца меньше или равен 15 (то есть первая половина месяца).
+--выбрать поставки, сделанные в первой половине августа 2022 года (с 1 по 15 августа 2022)
+select * from warehause.consignment c
+where c.receipt_date between '2022-08-01' AND '2022-08-15';
+
+
+Задание 5 .
+Вывести все товары, которые не покупались в июле, но поставлялись в сентябре.
+select p.id, p.product_name, p.buy_price, p.sell_price, c.receipt_date
+from warehause.product p
+join warehause.consignment c on p.id = c.product
+where extract(month from c.receipt_date) = 9  -- Товары поставлялись в сентябре
+and p.id not in (
+   select o.product
+   from warehause.orders o
+   where extract(month from o.order_date) = 7  -- Товары покупались в июле
+);
+
+
+
+
+Задание 6 .
+Вывести таблицу отражающую динамику покупок товаров из каждой страны в августе и сентябре 2022 года в формате Страна|Сумма покупок в августе| Сумма покупок в сентябре| Прирост выручки.
+--Нужно сгруппировать данные по странам, посчитать сумму покупок за август и сентябрь 2022 года, а затем вычислить прирост выручки.
+select
+   c.country_name AS country,
+   sum(case when extract(month from o.order_date) = 8 then o.amount * p.sell_price else 0 end) as august_sales,
+   sum(case when extract(month from o.order_date) = 9 then o.amount * p.sell_price else 0 end) as september_sales,
+   sum(case when extract(month from o.order_date) = 9 then o.amount * p.sell_price else 0 end) -
+   sum(case when extract(month from o.order_date) = 8 then o.amount * p.sell_price else 0 end) as revenue_growth
+from warehause.orders o
+join warehause.product p on o.product = p.id
+join warehause.country c on p.manufacturer = c.id  -- join с таблицей стран
+where extract(year from o.order_date) = 2022  -- Только 2022 год
+and extract(month from o.order_date) in (8, 9)  -- Только август и сентябрь
+group by c.country_name
+order by revenue_growth desc; -- Сортировка по приросту выручки
+
+
+
+
+Задание 7 .
+Вставить в таблицу product товар с наименованием task7_product, производителя Bork, цены которого на 10% больше чем соответствующие цены у самого дорогого товара.
+select * from warehause.product p;
+select * from warehause.country c;
+select * from warehause.manufacturer m;
+--Добавляем продукт 'task7_product' со значением manufacturer = 4(Россия)
+insert into warehause.product(id, product_name, manufacturer)
+values(25, 'task7_product', 4);
+--проверяем максимальные прайсы товара
+select max(buy_price) from warehause.product p; -- buy_price = 50
+select max(sell_price), from warehause.product p; -- sell_price = 100
+--меняем buy_price на 55 у продукта 'task7_product'
+update warehause.product p
+set buy_price = 55
+where product_name = 'task7_product';
+--меняем sell_price на 110 у продукта 'task7_product'
+update warehause.product p
+set sell_price = 110
+where product_name = 'task7_product';
+-- проверяем
+select * from warehause.product p
+where buy_price = 55 and sell_price = 110;
+--Задача решена
+
+
+
+
+Задание 8
+Увеличить отпускные цены всех товаров Bork на 10%.
+select * from warehause.product p;
+--меняем sell_price
+update warehause.product p
+set sell_price = sell_price * 1.1
+where manufacturer = 4;
+--меняем buy_price
+update warehause.product p
+set buy_price = buy_price * 1.1
+where manufacturer = 4;
+--проверяем
+select * from warehause.product p
+where manufacturer = 4;
+--задача решена
