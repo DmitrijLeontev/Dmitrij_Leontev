@@ -1,0 +1,133 @@
+Простые запросы.
+
+Задание 1.
+Вывести все содержимое таблицы Client.
+select * from warehause.client c
+
+Задание 2.
+Вывести из таблицы городов идентификатор (ID), соответствующий городу Липецку.
+select id, city_name from warehause.city c
+where c.city_name like 'Липец%'
+или так
+select id from warehause.city c
+where c.city_name like 'Липецк'
+
+Задание 3.
+Из таблицы Consignment выбрать все поставки, количество товара в которых не
+превышает 40.
+select amount, id, product, receipt_date from warehause.consignment c
+where c.amount < 41
+или так
+select amount, id  from warehause.consignment c
+where c.amount < 41
+
+Задание 4.
+Из таблицы Product выбрать все товары, цена продажи которых превышает 50 000.
+select sell_price from warehause.product p
+where p.sell_price > 49000
+или более информативно
+select id, manufacturer, p.product_name, buy_price, sell_price from warehause.product p
+where p.sell_price > 49000
+
+Задание 5.
+Вывести все поставки сделанные после 31 августа 2022 года. Вывести результат в формате:
+Дата поставки, код поставки, количество товара
+select receipt_date, batch_code, amount from warehause.consignment c
+where c.receipt_date >= '2022-08-31'
+
+Задание 6.
+Вывести все заказы клиентов, сделанные в сентябре 2022 года.
+select * from warehause.orders o
+
+
+select id, client, product, order_date, amount from warehause.orders o
+where o.order_date between'2022-09-01' and '2022-09-30'
+
+Задание 7.
+Вывести все номера накладных, по которым проходят товары с номерами 4,6,18,21,27
+select * from warehause.consignment c
+where c.product in (4, 6, 18, 21, 27)
+или так:
+select product, batch_code  from warehause.consignment c
+where c.product in (4, 6, 18, 21, 27)
+
+
+Задание 8.
+Вывести все поставки, коды накладных которых начинаются с буквы ‘L’
+select * from warehause.consignment c
+where c.batch_code like 'L%'
+
+Задание 9.
+Вывести клиентов, у которых не заполнен номер телефона.
+select * from warehause.client c
+where phone is null
+
+
+Задание 10.
+Вывести отмененные заказы, сделанные до осени 2022 года.
+select * from warehause.orders o
+where o.status like 'отменен' and order_date <= '2022-08-31'
+
+Часть 2. Соединение таблиц.
+
+Задание 1.
+Соединить таблицы Страна и Производители.
+select * from manufacturer
+join city on
+manufacturer.country = city.country
+
+Задание 2.
+Вывести декартово произведение таблиц Производители и Товары
+select * from manufacturer, product
+
+Задание 3.
+Из таблицы Consignment выбрать все поставки в формате: дата поставки, наименование
+товара, наименование производителя, код поставки, количество единиц товара.
+select * from warehause.consignment, warehause.manufacturer, warehause.product;
+Используем декартово произведение для трех таблиц, но впереди перед from указываем то что нужно, т.е не все а только заданные столбцы:
+select receipt_date, product.product_name, manufacturer.manufacturer_name , batch_code, amount from warehause.consignment, warehause.manufacturer, warehause.product;
+
+Задание 4.
+Вывести все заказы, сделанные клиентами из Воронежа.
+select * from warehause.orders, warehause.client, warehause.city
+where city_name like 'Вороне%';
+а так более красиво:
+select client, name, last_name, order_date, status, amount, city_name from warehause.orders, warehause.client, warehause.city
+where city_name like 'Воронеж';
+
+Задание 5.
+Вывести для каждой страны, количество поставок товаров, поставленных в сентябре
+select receipt_date, product_name, amount, country_name  from warehause.consignment, warehause.manufacturer, warehause.product, warehause.country
+where receipt_date between'2022-09-01' and '2022-09-30';
+
+Задание 6.
+Вывести все заказы в которых были куплены товары из КНР.
+select receipt_date, product_name, amount, country_name
+ from warehause.consignment, warehause.manufacturer, warehause.product, warehause.country
+where country_name like 'КНР%';
+
+
+Задание 7.
+Вывести всех покупателей, купивших товары из Кореи.
+select client, name, last_name, order_date, status, amount, country_name from warehause.orders, warehause.client, warehause.country
+where country_name like '%Корея';
+
+Задание 8.
+Вывести все заказы в формате, Дата заказа, фамилия клиента, наименование товара,
+стоимость заказа
+сначала:
+select * from warehause.orders, warehause.client, warehause.product, warehause.consignment
+where sell_price is not null
+затем:
+select receipt_date, last_name, product_name, sell_price
+from warehause.orders, warehause.client, warehause.product, warehause.consignment
+where sell_price is not null
+group by receipt_date, last_name, sell_price,  product_name
+
+Задание 9.
+Вывести фамилии, имена и телефоны клиентов, которые не сделали ни одного заказа.
+сначала:
+select * from warehause.client, warehause.orders, warehause.product, warehause.consignment
+затем:
+select last_name, name, phone , order_date, sell_price, buy_price, status from warehause.client, warehause.orders, warehause.product, warehause.consignment
+where  order_date is not null and sell_price is null and status like 'отменен'
