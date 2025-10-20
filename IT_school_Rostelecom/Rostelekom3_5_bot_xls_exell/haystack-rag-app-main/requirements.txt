@@ -1,0 +1,12 @@
+haystack-ai
+datasets>=2.6.1
+sentence-transformers>=4.1.0
+transformers[torch,sentencepiece]
+python-dotenv
+huggingface_hub[hf_xet]
+ollama-haystack
+python-telegram-bot
+pandas>=1.5.0
+openpyxl>=3.0.0
+xlrd>=2.0.0
+psycopg2-binary>=2.9.0
